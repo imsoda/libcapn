@@ -147,6 +147,7 @@ static void __apn_pusher_usage(void) {
     fprintf(stderr, "    -p Passphrase for .p12 file. Will be asked from the tty\n");
     fprintf(stderr, "    -d Use sandbox mode\n");
     fprintf(stderr, "    -m Body of the alert to send in notification\n");
+    fprintf(stderr, "    -e KEY:STRING Send custom message as key string value pair.\n");
     fprintf(stderr, "    -a Indicates content available\n");
     fprintf(stderr, "    -b Badge number to set with notification\n");
     fprintf(stderr, "    -s Name of a sound file in the app bundle\n");
@@ -192,6 +193,14 @@ int main(int argc, char **argv) {
 
     const char *const opts = "ahc:pdm:b:s:i:e:y:t:T:v";
     int c = -1;
+
+    /* For -e option */
+    char* field = NULL;
+    char* key = NULL;
+    char* value = NULL;
+    int len = 0;
+    int field_cnt = 0;
+
     while ((c = getopt(argc, argv, opts)) != -1) {
         switch (c) {
             case 'h':
@@ -205,6 +214,46 @@ int main(int argc, char **argv) {
                 break;
             case 'm':
                 apn_payload_set_body(payload, optarg);
+                break;
+            case 'e':
+                field = strtok(optarg, ":");
+                if(field != NULL)
+                {
+                    field_cnt += 1;
+                    len = strlen(field);
+                    key = malloc(len+1);
+                    memset(key, 0, len+1);
+                    strncpy(key, field, len);
+                }
+                
+                while(1) 
+                {
+                   field = strtok(NULL, ":");
+                   if(field != NULL)
+                   {
+                       field_cnt += 1;
+                   } else {
+                       break;
+                   }
+                   
+                   if(field_cnt == 2)
+                   {
+                       len = strlen(field);
+                       value = malloc(len+1);
+                       memset(value, 0, len+1);
+                       strncpy(value, field, len);
+                   }
+                }
+                if(field_cnt != 2)
+                {
+                    fprintf(stderr, "Wrong password for -e\n");
+                    free(key);
+                    free(value);
+                    goto finish;
+                }
+                apn_payload_add_custom_property_string(payload, key, value);
+                free(key);
+                free(value);
                 break;
             case 'c':
                 p12 = apn_strndup(optarg, strlen(optarg));
