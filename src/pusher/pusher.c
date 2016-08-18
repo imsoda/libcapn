@@ -122,32 +122,15 @@ apn_array_t *__apn_read_tokens_from_file(const char *const path) {
     return tokens;
 }
 
-static ssize_t __apn_getpass(char **password, size_t *n) {
-    struct termios old_termios;
-    struct termios new_termios;
-    if (0 != tcgetattr (STDIN_FILENO, &old_termios)) {
-        return -1;
-    }
-    new_termios = old_termios;
-    new_termios.c_lflag &= ~ECHO;
-    if (0 != tcsetattr(STDIN_FILENO, TCSAFLUSH, &new_termios)) {
-        return -1;
-    }
-    int read = getline (password, n, stdin);
-    tcsetattr (STDIN_FILENO, TCSAFLUSH, &old_termios);
-    return read;
-}
-
 static void __apn_pusher_usage(void) {
     fprintf(stderr, "apn-pusher - simple tool to send push notifications to iOS and OS X devices\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Usage: apn-pusher [OPTION]\n");
     fprintf(stderr, "    -h Print this message and exit\n");
-    fprintf(stderr, "    -c Path to .p12 file (required)\n");
-    fprintf(stderr, "    -p Passphrase for .p12 file. Will be asked from the tty\n");
+    fprintf(stderr, "    -c Path to certificate file (required)\n");
     fprintf(stderr, "    -d Use sandbox mode\n");
     fprintf(stderr, "    -m Body of the alert to send in notification\n");
-    fprintf(stderr, "    -e KEY:STRING Send custom message as key string value pair.\n");
+    fprintf(stderr, "    -e KEY:STRING Send custom message as key string value pair. No need to use -a with this option.\n");
     fprintf(stderr, "    -a Indicates content available\n");
     fprintf(stderr, "    -b Badge number to set with notification\n");
     fprintf(stderr, "    -s Name of a sound file in the app bundle\n");
@@ -186,17 +169,15 @@ int main(int argc, char **argv) {
     apn_set_behavior(apn_ctx, APN_OPTION_RECONNECT);
 
     apn_array_t *tokens = NULL;
-    char *p12_pass = NULL;
-    char *p12 = NULL;
+    char *cert = NULL;
     uint8_t ret = 0;
-    uint8_t rpassword = 0;
 
     const char *const opts = "ahc:pdm:b:s:i:e:y:t:T:v";
     int c = -1;
 
     /* For -e option */
     char* field = NULL;
-    char* key = NULL;
+    char* key = NULL;  /* The key of custom message. */
     char* value = NULL;
     int len = 0;
     int field_cnt = 0;
@@ -251,15 +232,13 @@ int main(int argc, char **argv) {
                     free(value);
                     goto finish;
                 }
+                apn_payload_set_content_available(payload, 1);
                 apn_payload_add_custom_property_string(payload, key, value);
                 free(key);
                 free(value);
                 break;
             case 'c':
-                p12 = apn_strndup(optarg, strlen(optarg));
-                break;
-            case 'p':
-                rpassword = 1;
+                cert = apn_strndup(optarg, strlen(optarg));
                 break;
             case 's':
                 apn_payload_set_sound(payload, optarg);
@@ -301,34 +280,10 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (p12) {
-        if(rpassword) {
-            printf("Enter .p12 file password: ");
-            size_t p12_pass_len = 1024;
-            p12_pass = malloc(p12_pass_len);
-            if(!p12_pass) {
-                ret = 1;
-                goto finish;
-            }
-            memset(p12_pass, 0, p12_pass_len);
-            ssize_t read = __apn_getpass(&p12_pass, &p12_pass_len);
-            if (-1 == read) {
-                ret = 1;
-                goto finish;
-            }
-            if(p12_pass[read - 1] == '\n') {
-                p12_pass[read -1] = '\0';
-            }
-        }
-        fprintf(stderr, "\n");
-        if (!p12_pass || strlen(p12_pass) == 0) {
-            fprintf(stderr, "Missing passphrase\n");
-            ret = 1;
-            goto finish;
-        }
-        apn_set_pkcs12_file(apn_ctx, p12, p12_pass);
+    if (cert) {
+        apn_set_certificate(apn_ctx, cert, cert, NULL);
     } else {
-        fprintf(stderr, "Missing .p12 file\n");
+        fprintf(stderr, "Missing cert file\n");
         ret = 1;
         goto finish;
     }
@@ -369,8 +324,7 @@ int main(int argc, char **argv) {
     }
 
     finish:
-    apn_strfree(&p12_pass);
-    apn_strfree(&p12);
+    apn_strfree(&cert);
 
     apn_free(apn_ctx);
     apn_payload_free(payload);
