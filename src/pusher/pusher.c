@@ -227,7 +227,7 @@ int main(int argc, char **argv) {
                 }
                 if(field_cnt != 2)
                 {
-                    fprintf(stderr, "Wrong password for -e\n");
+                    fprintf(stderr, "Wrong parameter for -e\n");
                     free(key);
                     free(value);
                     goto finish;
@@ -236,6 +236,9 @@ int main(int argc, char **argv) {
                 apn_payload_add_custom_property_string(payload, key, value);
                 free(key);
                 free(value);
+                key = NULL;
+                value = NULL;
+                field_cnt = 0;
                 break;
             case 'c':
                 cert = apn_strndup(optarg, strlen(optarg));
