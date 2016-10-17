@@ -130,7 +130,7 @@ static void __apn_pusher_usage(void) {
     fprintf(stderr, "    -c Path to certificate file (required)\n");
     fprintf(stderr, "    -d Use sandbox mode\n");
     fprintf(stderr, "    -m Body of the alert to send in notification\n");
-    fprintf(stderr, "    -e KEY:STRING Send custom message as key string value pair. No need to use -a with this option.\n");
+    fprintf(stderr, "    -e KEY:STRING Send custom message as key string value pair\n");
     fprintf(stderr, "    -a Indicates content available\n");
     fprintf(stderr, "    -b Badge number to set with notification\n");
     fprintf(stderr, "    -s Name of a sound file in the app bundle\n");
@@ -232,7 +232,6 @@ int main(int argc, char **argv) {
                     free(value);
                     goto finish;
                 }
-                apn_payload_set_content_available(payload, 1);
                 apn_payload_add_custom_property_string(payload, key, value);
                 free(key);
                 free(value);
