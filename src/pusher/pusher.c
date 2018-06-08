@@ -130,7 +130,8 @@ static void __apn_pusher_usage(void) {
     fprintf(stderr, "    -c Path to certificate file (required)\n");
     fprintf(stderr, "    -d Use sandbox mode\n");
     fprintf(stderr, "    -m Body of the alert to send in notification\n");
-    fprintf(stderr, "    -e KEY:STRING Send custom message as key string value pair\n");
+    fprintf(stderr, "    -e KEY:STRING Send custom message as key string value pair. value=STR\n");
+    fprintf(stderr, "    -n KEY:STRING Send custom message as key string value pair. value=INT\n");
     fprintf(stderr, "    -a Indicates content available\n");
     fprintf(stderr, "    -b Badge number to set with notification\n");
     fprintf(stderr, "    -s Name of a sound file in the app bundle\n");
@@ -172,7 +173,7 @@ int main(int argc, char **argv) {
     char *cert = NULL;
     uint8_t ret = 0;
 
-    const char *const opts = "ahc:pdm:b:s:i:e:y:t:T:v";
+    const char *const opts = "ahc:pdm:b:s:i:e:n:y:t:T:v";
     int c = -1;
 
     /* For -e option */
@@ -195,6 +196,49 @@ int main(int argc, char **argv) {
                 break;
             case 'm':
                 apn_payload_set_body(payload, optarg);
+                break;
+            case 'n':
+                field = strtok(optarg, ":");
+                if(field != NULL)
+                {
+                    field_cnt += 1;
+                    len = strlen(field);
+                    key = malloc(len+1);
+                    memset(key, 0, len+1);
+                    strncpy(key, field, len);
+                }
+                
+                while(1) 
+                {
+                   field = strtok(NULL, ":");
+                   if(field != NULL)
+                   {
+                       field_cnt += 1;
+                   } else {
+                       break;
+                   }
+                   
+                   if(field_cnt == 2)
+                   {
+                       len = strlen(field);
+                       value = malloc(len+1);
+                       memset(value, 0, len+1);
+                       strncpy(value, field, len);
+                   }
+                }
+                if(field_cnt != 2)
+                {
+                    fprintf(stderr, "Wrong parameter for -e\n");
+                    free(key);
+                    free(value);
+                    goto finish;
+                }
+                apn_payload_add_custom_property_integer(payload, key, value);
+                free(key);
+                free(value);
+                key = NULL;
+                value = NULL;
+                field_cnt = 0;
                 break;
             case 'e':
                 field = strtok(optarg, ":");
